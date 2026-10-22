@@ -10,6 +10,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.omrscannerapp.ui.camera.CameraScreen
 import com.example.omrscannerapp.ui.preview.PreviewScreen
+import com.example.omrscannerapp.ui.keys.KeysScreen
+import com.example.omrscannerapp.ui.keys.CreateKeyScreen
 
 @Composable
 fun AppNavigation(navController: NavHostController = rememberNavController()) {
@@ -21,7 +23,20 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 },
                 onGalleryImageSelected = { uri ->
                     navController.navigate("preview/${Uri.encode(uri.toString())}")
+                },
+                onCreateKeyClick = {
+                    navController.navigate("create_key")
                 }
+            )
+        }
+        composable("keys") {
+            KeysScreen(
+                onCreateKeyClick = { navController.navigate("create_key") }
+            )
+        }
+        composable("create_key") {
+            CreateKeyScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable("camera") {

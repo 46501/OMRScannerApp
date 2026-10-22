@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.omrscannerapp.ui.home.HomeScreen
+import com.example.omrscannerapp.ui.keys.KeysScreen
 
 enum class Tab(
     val title: String,
@@ -42,7 +43,8 @@ enum class Tab(
 @Composable
 fun MainScreen(
     onScanClick: () -> Unit,
-    onGalleryImageSelected: (Uri) -> Unit
+    onGalleryImageSelected: (Uri) -> Unit,
+    onCreateKeyClick: () -> Unit
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = Tab.values()
@@ -89,7 +91,10 @@ fun MainScreen(
                 Text("History Screen", Modifier.padding(innerPadding))
             }
             Tab.KEYS -> {
-                Text("Keys Screen", Modifier.padding(innerPadding))
+                KeysScreen(
+                    modifier = Modifier.padding(innerPadding),
+                    onCreateKeyClick = onCreateKeyClick
+                )
             }
             Tab.PROFILE -> {
                 Text("Profile Screen", Modifier.padding(innerPadding))
