@@ -7,7 +7,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import com.example.omrscannerapp.data.AnswerKey
+import com.example.omrscannerapp.data.AnswerKeyRepository
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,8 +26,13 @@ import com.example.omrscannerapp.theme.PrimaryColor
 fun PreviewScreen(
     imageUri: Uri?,
     onBack: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: (AnswerKey) -> Unit
 ) {
+    val context = LocalContext.current
+    val repository = remember { AnswerKeyRepository(context) }
+    val keys = remember { repository.getAllKeys() }
+    var expanded by remember { mutableStateOf(false) }
+    var selectedKey by remember { mutableStateOf<AnswerKey?>(keys.firstOrNull()) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -51,8 +59,39 @@ fun PreviewScreen(
                     .background(MaterialTheme.colorScheme.surface)
                     .padding(16.dp)
             ) {
+                // Key Selection Dropdown
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedKey?.name ?: "No Answer Key Found",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Select Answer Key") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        keys.forEach { key ->
+                            DropdownMenuItem(
+                                text = { Text(key.name) },
+                                onClick = {
+                                    selectedKey = key
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Button(
-                    onClick = onConfirm,
+                    onClick = { selectedKey?.let { onConfirm(it) } },
+                    enabled = selectedKey != null,
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor)
