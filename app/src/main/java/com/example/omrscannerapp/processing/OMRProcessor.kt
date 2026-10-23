@@ -66,7 +66,8 @@ object OMRProcessor {
 
             // 3. Thresholding for bubbles
             val thresh = Mat()
-            Imgproc.threshold(warped, thresh, 0.0, 255.0, Imgproc.THRESH_BINARY_INV or Imgproc.THRESH_OTSU)
+            // Adaptive threshold is often more robust for shadows than global Otsu
+            Imgproc.adaptiveThreshold(warped, thresh, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 21, 10.0)
 
             // 4. Find bubbles
             val bubbleContours = ArrayList<MatOfPoint>()
@@ -76,54 +77,65 @@ object OMRProcessor {
             for (c in bubbleContours) {
                 val rect = Imgproc.boundingRect(c)
                 val ar = rect.width / rect.height.toFloat()
-                // A typical bubble is roughly square
-                if (rect.width >= 20 && rect.height >= 20 && ar >= 0.8 && ar <= 1.2) {
+                // Relaxed aspect ratio to account for camera angle/squash
+                if (rect.width >= 15 && rect.height >= 15 && ar >= 0.6 && ar <= 1.4) {
                     questions.add(c)
                 }
             }
 
-            // If we don't have exactly expectedQuestions * optionsPerQuestion bubbles, it's a heuristic failure.
-            // For a robust system, we would sort bubbles into rows and columns.
-            // As a general fallback for this phase, we will do top-to-bottom sorting.
-            
-            // Sort from top to bottom
+            // Fallback: If no 4-point perspective warp happened, and the page is slightly rotated,
+            // sorting purely by Y can fail. We proceed assuming mostly horizontal/vertical alignment.
             val sortedByY = questions.sortedBy { Imgproc.boundingRect(it).y }
             
             val detectedAnswers = mutableListOf<Int>()
             
-            // Group by row (assuming optionsPerQuestion bubbles per row)
             for (i in 0 until expectedQuestions) {
                 val startIndex = i * optionsPerQuestion
                 if (startIndex + optionsPerQuestion > sortedByY.size) {
-                    // Not enough bubbles detected
+                    // Not enough bubbles detected to confidently map this row
                     detectedAnswers.add(-1)
                     continue
                 }
                 
                 val rowBubbles = sortedByY.subList(startIndex, startIndex + optionsPerQuestion)
-                // Sort by X (left to right)
                 val sortedByX = rowBubbles.sortedBy { Imgproc.boundingRect(it).x }
                 
-                var bubbledCount = 0
-                var selectedOption = -1
-                
+                val fillValues = DoubleArray(optionsPerQuestion)
                 for (j in 0 until optionsPerQuestion) {
                     val bubble = sortedByX[j]
                     val mask = Mat.zeros(thresh.size(), CvType.CV_8UC1)
+                    // Draw filled contour of the bubble on the mask
                     Imgproc.drawContours(mask, listOf(bubble), -1, Scalar(255.0), Core.FILLED)
                     
-                    val mean = Core.mean(thresh, mask).`val`[0]
-                    // If the fill ratio is high enough, consider it marked
-                    if (mean > 150) {
-                        bubbledCount++
-                        selectedOption = j
-                    }
+                    // Measure how many white pixels are inside the inverted threshold bubble
+                    fillValues[j] = Core.mean(thresh, mask).`val`[0]
                 }
                 
-                if (bubbledCount == 1) {
-                    detectedAnswers.add(selectedOption)
-                } else if (bubbledCount > 1) {
-                    detectedAnswers.add(-2) // Multiple
+                // Relative comparison: Find the darkest/most filled bubbles
+                val maxFill = fillValues.maxOrNull() ?: 0.0
+                
+                // Define a dynamic minimum fill threshold (e.g., must be decently dark to be considered)
+                val minFillThreshold = 100.0 // Configurable threshold (0-255 scale)
+                
+                if (maxFill > minFillThreshold) {
+                    var markedCount = 0
+                    var selectedIndex = -1
+                    // Any bubble that is within 80% of the maximum fill is also considered marked
+                    // This catches multiple-marked scenarios where both bubbles are dark
+                    val relativeThreshold = max(maxFill * 0.8, minFillThreshold)
+                    
+                    for (j in 0 until optionsPerQuestion) {
+                        if (fillValues[j] >= relativeThreshold) {
+                            markedCount++
+                            selectedIndex = j
+                        }
+                    }
+                    
+                    if (markedCount == 1) {
+                        detectedAnswers.add(selectedIndex)
+                    } else {
+                        detectedAnswers.add(-2) // Multiple marked
+                    }
                 } else {
                     detectedAnswers.add(-1) // Unanswered
                 }
