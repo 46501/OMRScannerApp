@@ -8,6 +8,7 @@ import java.io.File
 class AnswerKeyRepository(private val context: Context) {
     private val keysFile = File(context.filesDir, "answer_keys.json")
 
+    @Synchronized
     fun getAllKeys(): List<AnswerKey> {
         if (!keysFile.exists()) return emptyList()
         return try {
@@ -17,6 +18,7 @@ class AnswerKeyRepository(private val context: Context) {
         }
     }
 
+    @Synchronized
     fun saveKey(key: AnswerKey) {
         val keys = getAllKeys().toMutableList()
         val existingIndex = keys.indexOfFirst { it.id == key.id }
@@ -28,6 +30,7 @@ class AnswerKeyRepository(private val context: Context) {
         keysFile.writeText(Json.encodeToString(keys))
     }
 
+    @Synchronized
     fun deleteKey(id: String) {
         val keys = getAllKeys().filter { it.id != id }
         keysFile.writeText(Json.encodeToString(keys))

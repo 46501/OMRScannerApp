@@ -8,6 +8,7 @@ import java.io.File
 class ScanResultRepository(private val context: Context) {
     private val resultsFile = File(context.filesDir, "scan_results.json")
 
+    @Synchronized
     fun getAllResults(): List<ScanResult> {
         if (!resultsFile.exists()) return emptyList()
         return try {
@@ -17,6 +18,7 @@ class ScanResultRepository(private val context: Context) {
         }
     }
 
+    @Synchronized
     fun saveResult(result: ScanResult) {
         val results = getAllResults().toMutableList()
         val existingIndex = results.indexOfFirst { it.id == result.id }
@@ -28,6 +30,7 @@ class ScanResultRepository(private val context: Context) {
         resultsFile.writeText(Json.encodeToString(results))
     }
 
+    @Synchronized
     fun deleteResult(id: String) {
         val results = getAllResults().filter { it.id != id }
         resultsFile.writeText(Json.encodeToString(results))

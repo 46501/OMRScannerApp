@@ -19,23 +19,30 @@ object OMRProcessor {
     )
 
     fun processSheet(context: Context, imageUri: Uri, expectedQuestions: Int, optionsPerQuestion: Int): DetectionResult {
+        var mat: Mat? = null
+        var gray: Mat? = null
+        var blurred: Mat? = null
+        var edged: Mat? = null
+        var hierarchy: Mat? = null
+        var thresh: Mat? = null
+        var warped: Mat? = null
         try {
             val bitmap = uriToBitmap(context, imageUri) ?: return DetectionResult(emptyList(), false, "Failed to load image")
             
-            val mat = Mat()
+            mat = Mat()
             Utils.bitmapToMat(bitmap, mat)
             
             // 1. Preprocessing
-            val gray = Mat()
+            gray = Mat()
             Imgproc.cvtColor(mat, gray, Imgproc.COLOR_RGBA2GRAY)
-            val blurred = Mat()
+            blurred = Mat()
             Imgproc.GaussianBlur(gray, blurred, Size(5.0, 5.0), 0.0)
-            val edged = Mat()
+            edged = Mat()
             Imgproc.Canny(blurred, edged, 75.0, 200.0)
 
             // 2. Find paper contour
             val contours = ArrayList<MatOfPoint>()
-            val hierarchy = Mat()
+            hierarchy = Mat()
             Imgproc.findContours(edged, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
             
             if (contours.isEmpty()) {
@@ -57,15 +64,13 @@ object OMRProcessor {
                 }
             }
 
-            var warped = gray // Fallback to original if paper boundary not found
+            warped = gray // Fallback to original if paper boundary not found
             if (paperContour != null) {
                 warped = warpPerspective(gray, paperContour)
-            } else {
-                // If we can't find a 4-point contour, try to process the whole image anyway
             }
 
             // 3. Thresholding for bubbles
-            val thresh = Mat()
+            thresh = Mat()
             // Adaptive threshold is often more robust for shadows than global Otsu
             Imgproc.adaptiveThreshold(warped, thresh, 255.0, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 21, 10.0)
 
@@ -145,6 +150,14 @@ object OMRProcessor {
 
         } catch (e: Exception) {
             return DetectionResult(emptyList(), false, e.message)
+        } finally {
+            mat?.release()
+            gray?.release()
+            blurred?.release()
+            edged?.release()
+            hierarchy?.release()
+            thresh?.release()
+            warped?.takeIf { it != gray }?.release()
         }
     }
 
