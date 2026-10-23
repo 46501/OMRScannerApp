@@ -14,6 +14,8 @@ import com.example.omrscannerapp.ui.camera.CameraScreen
 import com.example.omrscannerapp.ui.preview.PreviewScreen
 import com.example.omrscannerapp.ui.keys.KeysScreen
 import com.example.omrscannerapp.ui.keys.CreateKeyScreen
+import com.example.omrscannerapp.ui.review.ReviewScreen
+import com.example.omrscannerapp.data.AnswerKey
 import com.example.omrscannerapp.ui.result.ScanProcessingScreen
 import com.example.omrscannerapp.ui.result.ResultScreen
 import com.example.omrscannerapp.data.ScanResult
@@ -27,6 +29,8 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     val scanResultRepository = remember { ScanResultRepository(context) }
     var currentScanResult by remember { mutableStateOf<ScanResult?>(null) }
+    var currentKey by remember { mutableStateOf<AnswerKey?>(null) }
+    var currentDetectedAnswers by remember { mutableStateOf<List<Int>?>(null) }
 
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") {
@@ -92,32 +96,10 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             ScanProcessingScreen(
                 imageUri = uri,
                 answerKeyId = keyId,
-                onSuccess = { evalResult, answerKey ->
-                    val questionDataList = evalResult.questionResults.map { qr ->
-                        QuestionData(
-                            questionNumber = qr.questionNumber,
-                            studentAnswer = qr.studentAnswer,
-                            correctAnswer = qr.correctAnswer,
-                            status = qr.status.name,
-                            marksAwarded = qr.marksAwarded
-                        )
-                    }
-                    val scanResult = ScanResult(
-                        id = UUID.randomUUID().toString(),
-                        examName = answerKey.name,
-                        dateMillis = System.currentTimeMillis(),
-                        finalScore = evalResult.finalScore,
-                        maxPossibleScore = evalResult.maxPossibleScore,
-                        correctCount = evalResult.correctCount,
-                        incorrectCount = evalResult.incorrectCount,
-                        unansweredCount = evalResult.unansweredCount,
-                        questionResults = questionDataList
-                    )
-                    
-                    scanResultRepository.saveResult(scanResult)
-                    currentScanResult = scanResult
-                    
-                    navController.navigate("result") {
+                onSuccess = { detectedAnswers, answerKey ->
+                    currentDetectedAnswers = detectedAnswers
+                    currentKey = answerKey
+                    navController.navigate("review") {
                         popUpTo("dashboard") { inclusive = false }
                     }
                 },
@@ -126,6 +108,22 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                     navController.popBackStack("dashboard", inclusive = false)
                 }
             )
+        }
+        composable("review") {
+            if (currentDetectedAnswers != null && currentKey != null) {
+                ReviewScreen(
+                    initialAnswers = currentDetectedAnswers!!,
+                    answerKey = currentKey!!,
+                    onConfirm = { scanResult ->
+                        scanResultRepository.saveResult(scanResult)
+                        currentScanResult = scanResult
+                        navController.navigate("result") {
+                            popUpTo("dashboard") { inclusive = false }
+                        }
+                    },
+                    onBack = { navController.popBackStack("dashboard", inclusive = false) }
+                )
+            }
         }
         composable("result") {
             currentScanResult?.let { result ->

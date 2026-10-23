@@ -21,7 +21,7 @@ import kotlinx.coroutines.withContext
 fun ScanProcessingScreen(
     imageUri: Uri,
     answerKeyId: String,
-    onSuccess: (GradingEngine.EvaluationResult, AnswerKey) -> Unit,
+    onSuccess: (List<Int>, AnswerKey) -> Unit,
     onError: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -45,12 +45,9 @@ fun ScanProcessingScreen(
                     return@withContext
                 }
 
-                statusText = "Comparing with answer key..."
-                val evaluationResult = GradingEngine.evaluate(detectionResult.answers, key)
-
                 withContext(Dispatchers.Main) {
-                    statusText = "Generating results..."
-                    onSuccess(evaluationResult, key)
+                    statusText = "Please review..."
+                    onSuccess(detectionResult.answers, key)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { onError(e.message ?: "Unknown error occurred") }
