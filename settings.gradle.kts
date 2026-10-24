@@ -1,3 +1,5 @@
+import java.util.Properties
+
 pluginManagement {
     repositories {
         google {
@@ -31,5 +33,13 @@ plugins {
 
 rootProject.name = "OMRScannerApp"
 include(":app")
+
+val localProperties = Properties()
+val localPropertiesFile = file("local.properties")
+if (localPropertiesFile.exists()) {
+    localProperties.load(localPropertiesFile.inputStream())
+}
+val opencvDir = localProperties.getProperty("opencv.dir") ?: System.getenv("OPENCV_DIR") ?: "D:/opencv-4.14.0-android-sdk/OpenCV-android-sdk/sdk"
+
 include(":opencv")
-project(":opencv").projectDir = File("D:/opencv-4.14.0-android-sdk/OpenCV-android-sdk/sdk")
+project(":opencv").projectDir = File(opencvDir)

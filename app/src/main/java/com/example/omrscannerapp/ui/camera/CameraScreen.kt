@@ -128,6 +128,12 @@ fun CameraPreview(
             }
         )
 
+        DisposableEffect(lifecycleOwner) {
+            onDispose {
+                cameraProviderFuture.get().unbindAll()
+            }
+        }
+
         // Top Bar
         Row(
             modifier = Modifier
