@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +24,9 @@ import com.example.omrscannerapp.data.AnswerKeyRepository
 import com.example.omrscannerapp.theme.PrimaryColor
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.omrscannerapp.export.PdfGenerator
+import androidx.core.content.FileProvider
+import android.content.Intent
 
 @Composable
 fun KeysScreen(
@@ -33,6 +37,18 @@ fun KeysScreen(
     val repository = remember { AnswerKeyRepository(context) }
     var keys by remember { mutableStateOf(repository.getAllKeys()) }
     var showDeleteConfirm by remember { mutableStateOf<AnswerKey?>(null) }
+
+    fun printKey(key: AnswerKey) {
+        val file = PdfGenerator.generateOmrSheet(context, key)
+        if (file != null) {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(Intent.createChooser(intent, "Open OMR Sheet"))
+        }
+    }
 
     Column(
         modifier = modifier
@@ -81,7 +97,8 @@ fun KeysScreen(
                 items(keys) { key ->
                     KeyItemCard(
                         key = key,
-                        onDeleteClick = { showDeleteConfirm = key }
+                        onDeleteClick = { showDeleteConfirm = key },
+                        onPrintClick = { printKey(key) }
                     )
                 }
             }
@@ -116,7 +133,7 @@ fun KeysScreen(
 }
 
 @Composable
-fun KeyItemCard(key: AnswerKey, onDeleteClick: () -> Unit) {
+fun KeyItemCard(key: AnswerKey, onDeleteClick: () -> Unit, onPrintClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -154,6 +171,13 @@ fun KeyItemCard(key: AnswerKey, onDeleteClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                     )
+                )
+            }
+            IconButton(onClick = onPrintClick) {
+                Icon(
+                    imageVector = Icons.Default.Print,
+                    contentDescription = "Print",
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
             IconButton(onClick = onDeleteClick) {
