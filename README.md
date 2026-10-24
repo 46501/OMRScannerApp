@@ -16,10 +16,14 @@ This application empowers teachers and educators to instantly grade multiple-cho
 *   **Grading Engine**: Completely native logic to calculate Correct, Incorrect, Unanswered, and Multiple-Marked answers. Supports custom Correct Marks and Negative Penalties per exam.
 *   **Manual Review**: Intercepts the OpenCV output and allows the user to manually verify and fix erroneously detected (or smudged) answers before committing the score to the database.
 
-### Planned Features (Phase Future)
+### Planned Features (Future)
 *   Subjective / Theory Answer evaluation using Gemini AI Vision.
 *   Exporting evaluation metrics to CSV.
 *   Complex multi-column physical OMR sheet calibration profiles.
+
+## Experimental ML Research
+This repository contains an isolated `ml/` directory representing an OpenCV + Convolutional Neural Network (CNN) research experiment. 
+- **Findings**: The OpenCV algorithm's bottleneck is localized bounding-box perspective alignment (finding the paper edges). If the geometry fails, the CNN never receives isolated bubbles to evaluate. Thus, the production app relies exclusively on OpenCV mapping against the strictly enforced Standardized PDF generator limits rather than integrating a heavy TensorFlow/PyTorch CNN dependency.
 
 ## Prerequisites & Setup
 
@@ -61,5 +65,14 @@ gradlew connectedAndroidTest
 ```
 
 ## Known Limitations
-*   **Template Structure**: The current OpenCV extraction logic maps questions by isolating horizontal rows bounded within a 4-point rectangle. OMR sheets that utilize complex columns (e.g., Questions 1-50 on the left half, 51-100 on the right half) are not currently parsed correctly. 
+*   **Template Structure**: The current OpenCV extraction logic relies on a strictly rendered 4-point bounding box with highly normalized columns. Arbitrary complex layouts (e.g., zig-zag bubbles or missing anchor boxes) are not supported. It is strongly recommended to use the built-in **Print** functionality on the `KeysScreen` to generate fully compatible, standardized OMR PDFs for physical scanning.
 *   **Physical Calibration**: The algorithm uses a relative density check with an absolute floor of `100.0`. Scanning under extreme shadows, crinkled paper, or colored paper stock may result in false negatives. Future versions will implement a UI-based calibration slider.
+
+## Manual Physical Testing Checklist
+Before enterprise deployment, the following physical tests must be manually completed since automated environments rely on synthetic bitmap rendering:
+- [ ] Print a standard 50-Question Answer Key PDF at **100% Scale**.
+- [ ] Correctly fill standard sequences (Q1=A, Q2=B, etc).
+- [ ] Intentionally smudge/erase a bubble to test adaptive noise handling.
+- [ ] Test in heavy indoor fluorescent lighting.
+- [ ] Test in harsh outdoor natural lighting.
+- [ ] Confirm no geometry warps occur and the Review screen matches physical ink natively.
