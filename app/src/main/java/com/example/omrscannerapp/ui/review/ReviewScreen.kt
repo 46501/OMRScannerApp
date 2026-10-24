@@ -33,14 +33,36 @@ fun ReviewScreen(
     onBack: () -> Unit
 ) {
     var currentAnswers by remember { mutableStateOf(initialAnswers) }
+    var showDiscardDialog by remember { mutableStateOf(false) }
     val evaluationResult = remember(currentAnswers) { GradingEngine.evaluate(currentAnswers, answerKey) }
+
+    if (showDiscardDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Discard Edits?") },
+            text = { Text("If you go back now, any manual corrections will be lost. Are you sure you want to discard them?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDiscardDialog = false
+                    onBack()
+                }) {
+                    Text("Discard", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscardDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Review Answers") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { showDiscardDialog = true }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },

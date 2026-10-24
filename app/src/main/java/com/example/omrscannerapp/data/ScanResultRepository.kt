@@ -27,12 +27,24 @@ class ScanResultRepository(private val context: Context) {
         } else {
             results.add(0, result) // Add to top
         }
-        resultsFile.writeText(Json.encodeToString(results))
+        val tempFile = File(context.filesDir, "scan_results_tmp.json")
+        try {
+            tempFile.writeText(Json.encodeToString(results))
+            tempFile.renameTo(resultsFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     @Synchronized
     fun deleteResult(id: String) {
         val results = getAllResults().filter { it.id != id }
-        resultsFile.writeText(Json.encodeToString(results))
+        val tempFile = File(context.filesDir, "scan_results_tmp.json")
+        try {
+            tempFile.writeText(Json.encodeToString(results))
+            tempFile.renameTo(resultsFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

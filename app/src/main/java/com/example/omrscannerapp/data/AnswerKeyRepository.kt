@@ -27,12 +27,24 @@ class AnswerKeyRepository(private val context: Context) {
         } else {
             keys.add(0, key) // Add to top
         }
-        keysFile.writeText(Json.encodeToString(keys))
+        val tempFile = File(context.filesDir, "answer_keys_tmp.json")
+        try {
+            tempFile.writeText(Json.encodeToString(keys))
+            tempFile.renameTo(keysFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     @Synchronized
     fun deleteKey(id: String) {
         val keys = getAllKeys().filter { it.id != id }
-        keysFile.writeText(Json.encodeToString(keys))
+        val tempFile = File(context.filesDir, "answer_keys_tmp.json")
+        try {
+            tempFile.writeText(Json.encodeToString(keys))
+            tempFile.renameTo(keysFile)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

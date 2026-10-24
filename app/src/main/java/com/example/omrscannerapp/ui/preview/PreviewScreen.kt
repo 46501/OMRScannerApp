@@ -70,7 +70,7 @@ fun PreviewScreen(
                         readOnly = true,
                         label = { Text("Select Answer Key") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
+                        modifier = Modifier.menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, true).fillMaxWidth()
                     )
                     ExposedDropdownMenu(
                         expanded = expanded,
