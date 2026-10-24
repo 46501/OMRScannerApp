@@ -1,0 +1,20 @@
+# Error Analysis: Hybrid OMR Pipeline
+
+## 1. Sheet or Grading-Region Detection
+- **Major Issue**: The provided dataset contains images resized to 1024x556 without any visible paper boundary, borders, or anchor markers.
+- **Impact**: The existing OpenCV baseline attempts a 4-point Canny contour perspective warp. Without a clear paper border, this warps the image entirely out of context, resulting in 1.29% accuracy (essentially 100% failure rate).
+
+## 2. Bubble Localization
+- To extract crops for the CNN, a custom script was built using HoughCircles and K-Means clustering.
+- **Failure**: Due to varying image noise and lighting in the dataset, HoughCircles frequently misses bubbles. If K-Means does not find exactly 100+ circles, the clustering logic fails to form a clean 12x10 grid.
+- **Result**: Successful bubble localization only worked on 15.17% (22/145) of the images.
+
+## 3. Bubble Classification (CNN)
+- On the successfully localized crops, the CNN achieved 86.46% accuracy on the isolated test set in predicting whether a bubble was filled or blank.
+- Errors in classification were primarily due to lightly filled bubbles or eraser smudges that appeared ambiguous.
+
+## 4. Conclusion
+Does the CNN improve the end-to-end OMR result?
+- **No**. The primary bottleneck in OMR is not classifying a neatly cropped 32x32 bubble; it is *localizing* the bubbles in the first place under varied perspective and lighting.
+- The CNN only classifies already-localized crops. If OpenCV cannot reliably extract the grid, the CNN is useless.
+- **Recommendation**: Retain the OpenCV-only pipeline for the Android app. Instead of integrating a heavy PyTorch/TensorFlow CNN, focus on ensuring users print standard OMR templates with high-contrast anchor boxes (as implemented in Phase 12).
