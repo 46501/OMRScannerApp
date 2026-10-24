@@ -88,14 +88,18 @@ object OMRProcessor {
             for (c in bubbleContours) {
                 val rect = Imgproc.boundingRect(c)
                 val ar = rect.width / rect.height.toFloat()
-                // Relaxed aspect ratio to account for camera angle/squash
-                if (rect.width >= 15 && rect.height >= 15 && ar >= 0.6 && ar <= 1.4) {
+                
+                val c2f = MatOfPoint2f(*c.toArray())
+                val perimeter = Imgproc.arcLength(c2f, true)
+                val area = Imgproc.contourArea(c)
+                val circularity = if (perimeter == 0.0) 0.0 else (4 * Math.PI * area) / (perimeter * perimeter)
+                
+                if (rect.width >= 12 && rect.height >= 12 && ar >= 0.6 && ar <= 1.4 && circularity >= 0.6) {
                     questions.add(c)
                 }
             }
 
             // Fallback or explicit handling for Multi-Column Layout
-            // Sorting purely by Y fails if there are multiple columns.
             val detectedAnswers = mutableListOf<Int>()
             
             // 1. Group bubbles by X coordinate into columns
@@ -105,12 +109,10 @@ object OMRProcessor {
             if (sortedByXForColumns.isNotEmpty()) {
                 var currentColumn = mutableListOf(sortedByXForColumns[0])
                 var previousX = Imgproc.boundingRect(sortedByXForColumns[0]).x
-                // Compute median width as a baseline
                 val medianWidth = if (questions.size > 0) {
                     questions.map { Imgproc.boundingRect(it).width }.sorted()[questions.size / 2]
                 } else 20
                 
-                // Typical column gap is much larger than options gap (usually > 2.5 * bubble width)
                 val columnGapThreshold = medianWidth * 2.5
                 
                 for (i in 1 until sortedByXForColumns.size) {
@@ -126,20 +128,39 @@ object OMRProcessor {
                 columns.add(currentColumn)
             }
             
-            // Sort columns by their average X coordinate to ensure left-to-right processing
             columns.sortBy { col -> col.map { Imgproc.boundingRect(it).x }.average() }
             
             // Process each column top-to-bottom
             for (col in columns) {
                 val sortedByY = col.sortedBy { Imgproc.boundingRect(it).y }
                 
-                val expectedQuestionsInThisColumn = sortedByY.size / optionsPerQuestion
+                val rows = mutableListOf<MutableList<MatOfPoint>>()
+                if (sortedByY.isNotEmpty()) {
+                    var currentRow = mutableListOf(sortedByY[0])
+                    var prevY = Imgproc.boundingRect(sortedByY[0]).y
+                    
+                    for (i in 1 until sortedByY.size) {
+                        val currentY = Imgproc.boundingRect(sortedByY[i]).y
+                        // Group by row using Y gap
+                        if (currentY - prevY > 15) {
+                            rows.add(currentRow)
+                            currentRow = mutableListOf(sortedByY[i])
+                        } else {
+                            currentRow.add(sortedByY[i])
+                        }
+                        prevY = currentY
+                    }
+                    rows.add(currentRow)
+                }
                 
-                for (i in 0 until expectedQuestionsInThisColumn) {
+                for (rowBubbles in rows) {
                     if (detectedAnswers.size >= expectedQuestions) break
                     
-                    val startIndex = i * optionsPerQuestion
-                    val rowBubbles = sortedByY.subList(startIndex, startIndex + optionsPerQuestion)
+                    if (rowBubbles.size != optionsPerQuestion) {
+                        detectedAnswers.add(-1)
+                        continue
+                    }
+                    
                     val sortedByX = rowBubbles.sortedBy { Imgproc.boundingRect(it).x }
                     
                     val fillValues = DoubleArray(optionsPerQuestion)
