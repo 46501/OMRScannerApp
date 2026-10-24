@@ -18,7 +18,13 @@ object OMRProcessor {
         val errorMessage: String? = null
     )
 
-    fun processSheet(context: Context, imageUri: Uri, expectedQuestions: Int, optionsPerQuestion: Int): DetectionResult {
+    data class CalibrationConfig(
+        val minFillThreshold: Double = 100.0,
+        val relativeFillRatio: Double = 0.8,
+        val detectColumns: Boolean = true
+    )
+
+    fun processSheet(context: Context, imageUri: Uri, expectedQuestions: Int, optionsPerQuestion: Int, config: CalibrationConfig = CalibrationConfig()): DetectionResult {
         var mat: Mat? = null
         var gray: Mat? = null
         var blurred: Mat? = null
@@ -88,62 +94,91 @@ object OMRProcessor {
                 }
             }
 
-            // Fallback: If no 4-point perspective warp happened, and the page is slightly rotated,
-            // sorting purely by Y can fail. We proceed assuming mostly horizontal/vertical alignment.
-            val sortedByY = questions.sortedBy { Imgproc.boundingRect(it).y }
-            
+            // Fallback or explicit handling for Multi-Column Layout
+            // Sorting purely by Y fails if there are multiple columns.
             val detectedAnswers = mutableListOf<Int>()
             
-            for (i in 0 until expectedQuestions) {
-                val startIndex = i * optionsPerQuestion
-                if (startIndex + optionsPerQuestion > sortedByY.size) {
-                    // Not enough bubbles detected to confidently map this row
-                    detectedAnswers.add(-1)
-                    continue
-                }
+            // 1. Group bubbles by X coordinate into columns
+            val sortedByXForColumns = questions.sortedBy { Imgproc.boundingRect(it).x }
+            val columns = mutableListOf<MutableList<MatOfPoint>>()
+            
+            if (sortedByXForColumns.isNotEmpty()) {
+                var currentColumn = mutableListOf(sortedByXForColumns[0])
+                var previousX = Imgproc.boundingRect(sortedByXForColumns[0]).x
+                // Compute median width as a baseline
+                val medianWidth = if (questions.size > 0) {
+                    questions.map { Imgproc.boundingRect(it).width }.sorted()[questions.size / 2]
+                } else 20
                 
-                val rowBubbles = sortedByY.subList(startIndex, startIndex + optionsPerQuestion)
-                val sortedByX = rowBubbles.sortedBy { Imgproc.boundingRect(it).x }
+                // Typical column gap is much larger than options gap (usually > 2.5 * bubble width)
+                val columnGapThreshold = medianWidth * 2.5
                 
-                val fillValues = DoubleArray(optionsPerQuestion)
-                for (j in 0 until optionsPerQuestion) {
-                    val bubble = sortedByX[j]
-                    val mask = Mat.zeros(thresh.size(), CvType.CV_8UC1)
-                    // Draw filled contour of the bubble on the mask
-                    Imgproc.drawContours(mask, listOf(bubble), -1, Scalar(255.0), Core.FILLED)
-                    
-                    // Measure how many white pixels are inside the inverted threshold bubble
-                    fillValues[j] = Core.mean(thresh, mask).`val`[0]
-                }
-                
-                // Relative comparison: Find the darkest/most filled bubbles
-                val maxFill = fillValues.maxOrNull() ?: 0.0
-                
-                // Define a dynamic minimum fill threshold (e.g., must be decently dark to be considered)
-                val minFillThreshold = 100.0 // Configurable threshold (0-255 scale)
-                
-                if (maxFill > minFillThreshold) {
-                    var markedCount = 0
-                    var selectedIndex = -1
-                    // Any bubble that is within 80% of the maximum fill is also considered marked
-                    // This catches multiple-marked scenarios where both bubbles are dark
-                    val relativeThreshold = max(maxFill * 0.8, minFillThreshold)
-                    
-                    for (j in 0 until optionsPerQuestion) {
-                        if (fillValues[j] >= relativeThreshold) {
-                            markedCount++
-                            selectedIndex = j
-                        }
-                    }
-                    
-                    if (markedCount == 1) {
-                        detectedAnswers.add(selectedIndex)
+                for (i in 1 until sortedByXForColumns.size) {
+                    val currentX = Imgproc.boundingRect(sortedByXForColumns[i]).x
+                    if (currentX - previousX > columnGapThreshold) {
+                        columns.add(currentColumn)
+                        currentColumn = mutableListOf(sortedByXForColumns[i])
                     } else {
-                        detectedAnswers.add(-2) // Multiple marked
+                        currentColumn.add(sortedByXForColumns[i])
                     }
-                } else {
-                    detectedAnswers.add(-1) // Unanswered
+                    previousX = currentX
                 }
+                columns.add(currentColumn)
+            }
+            
+            // Sort columns by their average X coordinate to ensure left-to-right processing
+            columns.sortBy { col -> col.map { Imgproc.boundingRect(it).x }.average() }
+            
+            // Process each column top-to-bottom
+            for (col in columns) {
+                val sortedByY = col.sortedBy { Imgproc.boundingRect(it).y }
+                
+                val expectedQuestionsInThisColumn = sortedByY.size / optionsPerQuestion
+                
+                for (i in 0 until expectedQuestionsInThisColumn) {
+                    if (detectedAnswers.size >= expectedQuestions) break
+                    
+                    val startIndex = i * optionsPerQuestion
+                    val rowBubbles = sortedByY.subList(startIndex, startIndex + optionsPerQuestion)
+                    val sortedByX = rowBubbles.sortedBy { Imgproc.boundingRect(it).x }
+                    
+                    val fillValues = DoubleArray(optionsPerQuestion)
+                    for (j in 0 until optionsPerQuestion) {
+                        val bubble = sortedByX[j]
+                        val mask = Mat.zeros(thresh.size(), CvType.CV_8UC1)
+                        Imgproc.drawContours(mask, listOf(bubble), -1, Scalar(255.0), Core.FILLED)
+                        fillValues[j] = Core.mean(thresh, mask).`val`[0]
+                    }
+                    
+                    val maxFill = fillValues.maxOrNull() ?: 0.0
+                    val minFillThreshold = config.minFillThreshold
+                    
+                    if (maxFill > minFillThreshold) {
+                        var markedCount = 0
+                        var selectedIndex = -1
+                        val relativeThreshold = max(maxFill * config.relativeFillRatio, minFillThreshold)
+                        
+                        for (j in 0 until optionsPerQuestion) {
+                            if (fillValues[j] >= relativeThreshold) {
+                                markedCount++
+                                selectedIndex = j
+                            }
+                        }
+                        
+                        if (markedCount == 1) {
+                            detectedAnswers.add(selectedIndex)
+                        } else {
+                            detectedAnswers.add(-2) // Multiple marked
+                        }
+                    } else {
+                        detectedAnswers.add(-1) // Unanswered
+                    }
+                }
+            }
+            
+            // Pad if not enough detected
+            while (detectedAnswers.size < expectedQuestions) {
+                detectedAnswers.add(-1)
             }
 
             return DetectionResult(detectedAnswers, true)
