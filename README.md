@@ -25,6 +25,16 @@ This application empowers teachers and educators to instantly grade multiple-cho
 This repository contains an isolated `ml/` directory representing an OpenCV + Convolutional Neural Network (CNN) research experiment. 
 - **Findings**: The OpenCV algorithm's bottleneck is localized bounding-box perspective alignment (finding the paper edges). If the geometry fails, the CNN never receives isolated bubbles to evaluate. Thus, the production app relies exclusively on OpenCV mapping against the strictly enforced Standardized PDF generator limits rather than integrating a heavy TensorFlow/PyTorch CNN dependency.
 
+## Theory Assistant Backend
+A secure Gemini API backend runs on FastAPI within the `backend/theory_api` folder. 
+**Setup**:
+1. `cd backend/theory_api`
+2. `pip install -r requirements.txt`
+3. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
+4. Run `uvicorn main:app --host 0.0.0.0 --port 8000`.
+
+*Note: In the emulator, the Android app accesses the backend via `http://10.0.2.2:8000/`. For physical devices, you must replace this constant in `TheoryApiClient.kt` with your local IP or deployed HTTPS domain.*
+
 ## Prerequisites & Setup
 
 ### 1. OpenCV Android SDK
