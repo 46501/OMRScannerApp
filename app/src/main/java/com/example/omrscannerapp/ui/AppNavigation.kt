@@ -18,6 +18,7 @@ import com.example.omrscannerapp.ui.review.ReviewScreen
 import com.example.omrscannerapp.data.AnswerKey
 import com.example.omrscannerapp.ui.result.ScanProcessingScreen
 import com.example.omrscannerapp.ui.result.ResultScreen
+import com.example.omrscannerapp.ui.theory.TheoryScreen
 import com.example.omrscannerapp.data.ScanResult
 import com.example.omrscannerapp.data.QuestionData
 import com.example.omrscannerapp.data.ScanResultRepository
@@ -43,7 +44,15 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 },
                 onCreateKeyClick = {
                     navController.navigate("create_key")
+                },
+                onTheoryClick = {
+                    navController.navigate("theory")
                 }
+            )
+        }
+        composable("theory") {
+            TheoryScreen(
+                onBack = { navController.popBackStack() }
             )
         }
         composable("keys") {

@@ -44,7 +44,8 @@ enum class Tab(
 fun MainScreen(
     onScanClick: () -> Unit,
     onGalleryImageSelected: (Uri) -> Unit,
-    onCreateKeyClick: () -> Unit
+    onCreateKeyClick: () -> Unit,
+    onTheoryClick: () -> Unit
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = Tab.values()
@@ -84,7 +85,8 @@ fun MainScreen(
                     onScanClick = onScanClick,
                     onGalleryClick = {
                         galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
+                    },
+                    onTheoryClick = onTheoryClick
                 )
             }
             Tab.HISTORY -> {

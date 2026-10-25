@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -30,7 +31,8 @@ import com.example.omrscannerapp.theme.PrimaryColor
 fun HomeScreen(
     modifier: Modifier = Modifier,
     onScanClick: () -> Unit,
-    onGalleryClick: () -> Unit
+    onGalleryClick: () -> Unit,
+    onTheoryClick: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -130,10 +132,10 @@ fun HomeScreen(
 
         // Grid Menu
         val gridItems = listOf(
-            GridMenuItem("Recent Scans", "View history", Icons.Filled.Image, Color(0xFF3B82F6)),
-            GridMenuItem("Answer Key", "Manage keys", Icons.Filled.Description, Color(0xFF10B981)),
-            GridMenuItem("Reports", "View analytics", Icons.Filled.Description, Color(0xFFF59E0B)),
-            GridMenuItem("Settings", "Customize app", Icons.Filled.Settings, Color(0xFF8B5CF6))
+            GridMenuItem("Recent Scans", "View history", Icons.Filled.Image, Color(0xFF3B82F6), {}),
+            GridMenuItem("Answer Key", "Manage keys", Icons.Filled.Description, Color(0xFF10B981), {}),
+            GridMenuItem("Theory Assistant", "Ask Gemini", Icons.Filled.School, Color(0xFFF59E0B), onTheoryClick),
+            GridMenuItem("Settings", "Customize app", Icons.Filled.Settings, Color(0xFF8B5CF6), {})
         )
 
         LazyVerticalGrid(
@@ -143,6 +145,7 @@ fun HomeScreen(
         ) {
             items(gridItems) { item ->
                 Card(
+                    modifier = Modifier.clickable { item.onClick() },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -199,7 +202,7 @@ fun HomeScreen(
     }
 }
 
-data class GridMenuItem(val title: String, val subtitle: String, val icon: ImageVector, val color: Color)
+data class GridMenuItem(val title: String, val subtitle: String, val icon: ImageVector, val color: Color, val onClick: () -> Unit)
 
 @Composable
 fun StatItem(value: String, label: String, color: Color) {
